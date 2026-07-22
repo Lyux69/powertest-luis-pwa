@@ -3,7 +3,7 @@
 Ya he preparado el sistema para que funcione así:
 
 PowerTest API
-→ GitHub Actions cada 15 minutos
+→ GitHub Actions cada 5 minutos
 → Supabase
 → PWA pública
 
@@ -93,4 +93,4 @@ GitHub repo
 → Sincronizar PowerTest con Supabase
 → Run workflow
 
-Si sale verde, ya queda automático cada 15 minutos.
+Si sale verde, ya queda automático cada 5 minutos.

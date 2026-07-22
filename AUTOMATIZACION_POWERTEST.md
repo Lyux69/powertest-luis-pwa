@@ -11,7 +11,7 @@ Usaremos GitHub Actions como “motor automático”.
 Así queda:
 
 PowerTest API
-→ GitHub Actions cada 15 minutos
+→ GitHub Actions cada 5 minutos
 → Supabase
 → PWA publicada en GitHub Pages
 
@@ -21,7 +21,7 @@ Google Sheets actual se queda intacto.
 
 Del sistema v2.6 actual vamos a replicar:
 
-1. Actualización automática cada 15 minutos.
+1. Actualización automática cada 5 minutos.
 2. Lectura de `/users/me` para obtener el userId.
 3. Lectura de `/test-responses/passed` con paginación.
 4. Guardado de tests.
