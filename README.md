@@ -1,44 +1,54 @@
-# PowerTest PWA — primera versión local
+# PowerTest PWA de Luis
 
-Esta carpeta contiene la primera PWA de PowerTest para Luis.
+## Abrir la app
+
+👉 **[Abrir PowerTest PWA](https://lyux69.github.io/powertest-luis-pwa/)**
+
+URL directa:
+
+https://lyux69.github.io/powertest-luis-pwa/
+
+## Qué es
+
+Esta es la PWA personal de PowerTest para Luis.
+
+Funciona desde GitHub Pages, así que ya no hace falta tener el PC principal encendido.
 
 ## Qué hace ahora
 
-- Muestra una pantalla inicial bonita y móvil.
-- Se conecta a Supabase con la URL pública y la publishable key.
-- Permite login por email/enlace mágico.
-- Lee estas tablas:
-  - tests
-  - fallos
-  - temas_progreso
-- No toca Google Sheets.
+- Se abre desde PC, iPhone, iPad o cualquier navegador.
+- Se conecta a Supabase.
+- Permite entrar con email + contraseña.
+- Permite meter tests manualmente.
+- Muestra últimos tests, fallos y temas.
+- Google Sheets sigue intacto.
 
-## Archivos
+## Importante
 
-- index.html: pantalla principal.
-- app.js: conexión con Supabase y lógica.
-- styles.css: diseño móvil/iPad/PC.
-- manifest.webmanifest: configuración para instalar como PWA.
-- sw.js: service worker básico.
-- icon.svg: icono temporal.
+No usar ya la URL local antigua:
 
-## Cómo probar en el PC
+http://127.0.0.1:4173
 
-Desde terminal:
+Esa solo servía para pruebas en el PC principal.
 
-```bash
-cd /home/luisrivero/Documentos/PowerTest_encontrado/pwa
-python3 -m http.server 4173
-```
+Usar siempre esta:
 
-Luego abrir:
+https://lyux69.github.io/powertest-luis-pwa/
 
-http://localhost:4173
+## Instalar en iPhone/iPad
 
-## Siguiente paso
+1. Abrir la URL en Safari.
+2. Pulsar Compartir.
+3. Pulsar Añadir a pantalla de inicio.
+4. Queda como icono tipo app.
 
-1. Activar login por email en Supabase si falta.
-2. Crear/invitar el usuario de Luis en Authentication → Users.
-3. Probar entrada con email.
-4. Meter datos de prueba en Supabase.
-5. Cuando funcione, publicar en GitHub Pages.
+## Repositorio
+
+Este repositorio contiene los archivos estáticos de la PWA:
+
+- index.html
+- app.js
+- styles.css
+- manifest.webmanifest
+- sw.js
+- icon.svg
