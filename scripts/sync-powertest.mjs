@@ -376,11 +376,36 @@ async function upsertTests(rows) {
 }
 
 async function upsertFallos(rows) {
-  return supabaseFetch('/rest/v1/fallos?on_conflict=user_id,external_attempt_id,external_question_id', {
-    method: 'POST',
-    body: rows,
-    prefer: 'resolution=merge-duplicates,return=representation',
-  });
+  try {
+    return await supabaseFetch('/rest/v1/fallos?on_conflict=user_id,external_attempt_id,external_question_id', {
+      method: 'POST',
+      body: rows,
+      prefer: 'resolution=merge-duplicates,return=representation',
+    });
+  } catch (error) {
+    // Si la migración SQL no creó todavía el índice único, evitamos duplicados manualmente.
+    // Así la sincronización puede seguir funcionando y no rompe la PWA.
+    if (!String(error?.message || '').includes('42P10')) throw error;
+
+    const written = [];
+    for (const row of rows) {
+      const existing = await supabaseFetch(
+        '/rest/v1/fallos?select=id'
+        + `&user_id=eq.${encodeURIComponent(row.user_id)}`
+        + `&external_attempt_id=eq.${encodeURIComponent(row.external_attempt_id)}`
+        + `&external_question_id=eq.${encodeURIComponent(row.external_question_id)}`,
+      );
+      if (Array.isArray(existing) && existing.length) continue;
+
+      const inserted = await supabaseFetch('/rest/v1/fallos', {
+        method: 'POST',
+        body: [row],
+        prefer: 'return=representation',
+      });
+      written.push(...inserted);
+    }
+    return written;
+  }
 }
 
 async function upsertTemas(rows) {
