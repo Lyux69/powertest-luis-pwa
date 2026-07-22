@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>PowerTest Luis</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css?v=3" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">PowerTest</p>
+        <h1>Panel de Luis</h1>
+        <p class="subtitle">PWA rápida conectada a Supabase. De momento manual y segura. Google Sheets no se toca.</p>
+      </div>
+      <div class="status-pill" id="connectionStatus">Preparando…</div>
+    </header>
+
+    <section class="card" id="loginCard">
+      <h2>Entrar</h2>
+      <p>Ahora entramos con email y contraseña para no depender del límite de correos de Supabase.</p>
+      <label for="emailInput">Email</label>
+      <input id="emailInput" type="email" placeholder="tu@email.com" autocomplete="email" />
+      <label for="passwordInput">Contraseña</label>
+      <input id="passwordInput" type="password" placeholder="Tu contraseña de Supabase" autocomplete="current-password" />
+      <button id="loginBtn" class="primary">Entrar con contraseña</button>
+      <button id="magicLinkBtn" class="secondary full" type="button">Mandarme enlace por email solo si hace falta</button>
+      <p class="small" id="loginMessage"></p>
+    </section>
+
+    <section class="grid" id="dashboard" hidden>
+      <article class="card metric">
+        <span class="metric-label">Tests</span>
+        <strong id="testsCount">0</strong>
+      </article>
+      <article class="card metric">
+        <span class="metric-label">Fallos pendientes</span>
+        <strong id="fallosCount">0</strong>
+      </article>
+      <article class="card metric">
+        <span class="metric-label">Temas</span>
+        <strong id="temasCount">0</strong>
+      </article>
+    </section>
+
+    <section class="actions" id="actions" hidden>
+      <button data-view="tests" class="tab active">Tests</button>
+      <button data-view="new" class="tab">Nuevo test</button>
+      <button data-view="fallos" class="tab">Fallos</button>
+      <button data-view="temas" class="tab">Temas</button>
+      <button id="refreshBtn" class="secondary">Actualizar</button>
+      <button id="logoutBtn" class="secondary danger">Salir</button>
+    </section>
+
+    <section class="card" id="newTestCard" hidden>
+      <h2>Meter test manual</h2>
+      <p class="small">Úsalo para probar la base. Más adelante conectaremos PowerTest real para que entre solo.</p>
+      <form id="testForm" class="test-form">
+        <label for="testNombre">Nombre del test</label>
+        <input id="testNombre" type="text" placeholder="Ejemplo: Test Constitución 1" required />
+
+        <div class="form-grid">
+          <div>
+            <label for="testTotal">Preguntas</label>
+            <input id="testTotal" type="number" min="0" inputmode="numeric" placeholder="100" />
+          </div>
+          <div>
+            <label for="testAciertos">Aciertos</label>
+            <input id="testAciertos" type="number" min="0" inputmode="numeric" placeholder="75" />
+          </div>
+          <div>
+            <label for="testFallos">Fallos</label>
+            <input id="testFallos" type="number" min="0" inputmode="numeric" placeholder="20" />
+          </div>
+          <div>
+            <label for="testNoRespondidas">Sin responder</label>
+            <input id="testNoRespondidas" type="number" min="0" inputmode="numeric" placeholder="5" />
+          </div>
+        </div>
+
+        <div class="form-grid two">
+          <div>
+            <label for="testPorcentaje">Porcentaje</label>
+            <input id="testPorcentaje" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="Se calcula solo" />
+          </div>
+          <div>
+            <label for="testTema">Tema principal</label>
+            <input id="testTema" type="text" placeholder="Ejemplo: Tema 1" />
+          </div>
+        </div>
+
+        <button class="primary" id="saveTestBtn" type="submit">Guardar test en Supabase</button>
+        <p class="small" id="testFormMessage"></p>
+      </form>
+    </section>
+
+    <section class="card" id="contentCard" hidden>
+      <div class="section-title-row">
+        <h2 id="contentTitle">Últimos tests</h2>
+        <span class="small" id="lastUpdateText"></span>
+      </div>
+      <div id="contentArea" class="list-area">Cargando…</div>
+    </section>
+
+    <section class="card info">
+      <h2>Estado del proyecto</h2>
+      <ul>
+        <li>Supabase creado y respondiendo.</li>
+        <li>Entrada manual de tests activada.</li>
+        <li>Diseño móvil/iPad/PC mejorado.</li>
+        <li>Google Sheets sigue intacto.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script type="module" src="app.js?v=3"></script>
+</body>
+</html>
