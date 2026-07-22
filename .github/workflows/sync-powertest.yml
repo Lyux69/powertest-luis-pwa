@@ -1,0 +1,33 @@
+name: Sincronizar PowerTest con Supabase
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+concurrency:
+  group: powertest-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Descargar repo
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Sincronizar PowerTest → Supabase
+        env:
+          POWERTEST_TOKEN: ${{ secrets.POWERTEST_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_USER_ID: ${{ secrets.SUPABASE_USER_ID }}
+          SUPABASE_USER_EMAIL: ${{ secrets.SUPABASE_USER_EMAIL }}
+        run: node scripts/sync-powertest.mjs
