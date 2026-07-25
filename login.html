@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>Entrar · PowerTest Luis</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css?v=4" />
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-brand" aria-labelledby="loginTitle">
+      <p class="eyebrow">PowerTest</p>
+      <h1 id="loginTitle">Acceso privado de Luis</h1>
+      <p class="subtitle">Primero inicias sesión. Después entras al panel de tests, fallos y progreso.</p>
+      <div class="login-points" aria-label="Resumen de seguridad">
+        <span>Panel separado</span>
+        <span>Datos en Supabase</span>
+        <span>Google Sheets intacto</span>
+      </div>
+    </section>
+
+    <section class="card login-card" aria-label="Inicio de sesión">
+      <div class="section-title-row">
+        <div>
+          <h2>Iniciar sesión</h2>
+          <p class="small">Email y contraseña para evitar depender del límite de correos.</p>
+        </div>
+        <div class="status-pill" id="connectionStatus">Preparando…</div>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <label for="emailInput">Email</label>
+        <input id="emailInput" type="email" placeholder="tu@email.com" autocomplete="email" required />
+
+        <label for="passwordInput">Contraseña</label>
+        <input id="passwordInput" type="password" placeholder="Tu contraseña de Supabase" autocomplete="current-password" required />
+
+        <button id="loginBtn" class="primary" type="submit">Entrar al panel</button>
+        <button id="magicLinkBtn" class="secondary full" type="button">Mandarme enlace por email solo si hace falta</button>
+        <p class="small" id="loginMessage" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <script type="module" src="login.js?v=4"></script>
+</body>
+</html>

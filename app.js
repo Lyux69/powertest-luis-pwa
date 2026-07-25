@@ -58,8 +58,6 @@ function fmtPercent(value) {
 }
 
 async function init() {
-  $('loginBtn').addEventListener('click', login);
-  $('magicLinkBtn').addEventListener('click', sendMagicLink);
   $('logoutBtn').addEventListener('click', logout);
   $('refreshBtn').addEventListener('click', loadData);
   $('testForm').addEventListener('submit', saveManualTest);
@@ -73,7 +71,7 @@ async function init() {
   });
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=3').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=4').catch(() => {});
   }
 
   const { data } = await supabase.auth.getSession();
@@ -90,6 +88,7 @@ async function init() {
     await loadData();
   } else {
     setStatus('Sin sesión', false);
+    window.location.replace('./login.html');
   }
 }
 
@@ -101,77 +100,6 @@ function setView(view) {
   renderContent();
 }
 
-async function login() {
-  const email = $('emailInput').value.trim();
-  const password = $('passwordInput').value;
-  $('loginMessage').textContent = '';
-
-  if (!email) {
-    $('loginMessage').textContent = 'Escribe tu email primero.';
-    return;
-  }
-
-  if (!password) {
-    $('loginMessage').textContent = 'Escribe tu contraseña.';
-    return;
-  }
-
-  $('loginBtn').disabled = true;
-  $('magicLinkBtn').disabled = true;
-  setStatus('Entrando…');
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  $('loginBtn').disabled = false;
-  $('magicLinkBtn').disabled = false;
-
-  if (error) {
-    $('loginMessage').textContent = 'Error: ' + error.message;
-    setStatus('Error de login', false);
-    return;
-  }
-
-  $('passwordInput').value = '';
-  $('loginMessage').textContent = 'Has entrado correctamente.';
-  setStatus('Conectado');
-}
-
-async function sendMagicLink() {
-  const email = $('emailInput').value.trim();
-  $('loginMessage').textContent = '';
-
-  if (!email) {
-    $('loginMessage').textContent = 'Escribe tu email primero.';
-    return;
-  }
-
-  $('loginBtn').disabled = true;
-  $('magicLinkBtn').disabled = true;
-  setStatus('Enviando enlace…');
-
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: window.location.href
-    }
-  });
-
-  $('loginBtn').disabled = false;
-  $('magicLinkBtn').disabled = false;
-
-  if (error) {
-    $('loginMessage').textContent = 'Error: ' + error.message;
-    setStatus('Límite de email o error', false);
-    return;
-  }
-
-  $('loginMessage').textContent = 'Listo. Mira tu correo y toca el enlace para entrar.';
-  setStatus('Enlace enviado');
-}
-
 async function logout() {
   await supabase.auth.signOut();
   state.tests = [];
@@ -179,11 +107,11 @@ async function logout() {
   state.temas = [];
   updateAuthUi();
   setStatus('Sin sesión', false);
+  window.location.href = './login.html';
 }
 
 function updateAuthUi() {
   const logged = Boolean(state.session);
-  $('loginCard').hidden = logged;
   $('dashboard').hidden = !logged;
   $('actions').hidden = !logged;
   $('newTestCard').hidden = !logged || state.view !== 'new';
