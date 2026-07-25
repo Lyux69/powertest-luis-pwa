@@ -24,7 +24,7 @@ async function init() {
   $('magicLinkBtn').addEventListener('click', sendMagicLink);
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=4').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=5').catch(() => {});
   }
 
   const { data } = await supabase.auth.getSession();

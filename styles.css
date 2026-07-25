@@ -220,6 +220,37 @@ button:disabled { opacity: .55; cursor: wait; }
   border-radius: 999px;
   padding: 6px 10px;
 }
+.test-result {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.score-label {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.result-badge {
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: .84rem;
+  font-weight: 900;
+}
+.result-badge.approved {
+  color: #052e1c;
+  background: var(--ok);
+}
+.result-badge.failed {
+  color: #450a0a;
+  background: #fca5a5;
+}
+.result-badge.neutral {
+  color: var(--muted);
+  background: rgba(255,255,255,.10);
+}
 .empty { color: var(--muted); padding: 18px; text-align: center; }
 .small { color: var(--muted); font-size: .92rem; margin-bottom: 0; }
 .error-text { color: #fecaca; }

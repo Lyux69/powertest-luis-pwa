@@ -57,6 +57,25 @@ function fmtPercent(value) {
   return `${Math.round(n * 100) / 100}%`;
 }
 
+function isApproved(test) {
+  if (typeof test.aprobado === 'boolean') return test.aprobado;
+  if (test.porcentaje === null || test.porcentaje === undefined || test.porcentaje === '') return null;
+  const nota = Number(test.porcentaje);
+  return Number.isFinite(nota) ? nota >= 50 : null;
+}
+
+function resultText(test) {
+  const approved = isApproved(test);
+  if (approved === null) return 'Sin resultado';
+  return approved ? 'Aprobado' : 'Suspenso';
+}
+
+function resultClass(test) {
+  const approved = isApproved(test);
+  if (approved === null) return 'neutral';
+  return approved ? 'approved' : 'failed';
+}
+
 async function init() {
   $('logoutBtn').addEventListener('click', logout);
   $('refreshBtn').addEventListener('click', loadData);
@@ -71,7 +90,7 @@ async function init() {
   });
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=4').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=5').catch(() => {});
   }
 
   const { data } = await supabase.auth.getSession();
@@ -257,7 +276,11 @@ function renderTests() {
     <article class="item">
       <div class="item-top">
         <h3>${escapeHtml(test.nombre || 'Test sin nombre')}</h3>
-        <strong class="score">${escapeHtml(fmtPercent(test.porcentaje))}</strong>
+        <div class="test-result">
+          <span class="score-label">Nota</span>
+          <strong class="score">${escapeHtml(fmtPercent(test.porcentaje))}</strong>
+          <span class="result-badge ${resultClass(test)}">${escapeHtml(resultText(test))}</span>
+        </div>
       </div>
       <p>${fmtDate(test.fecha)} · ${escapeHtml(test.origen || 'PowerTest')}</p>
       <p>Aciertos: ${escapeHtml(test.aciertos ?? '-')} · Fallos: ${escapeHtml(test.fallos ?? '-')} · Sin responder: ${escapeHtml(test.no_respondidas ?? '-')}</p>
