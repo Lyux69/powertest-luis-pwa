@@ -1,32 +1,22 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const SUPABASE_URL = 'https://ycoyqkyuiagickmfinpg.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_GgvdMhheTPbFIsaiSwKOZQ_kh2up-yu';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+import { APPS_SCRIPT_API_URL, REFRESH_SECONDS } from './config.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 
 const state = {
-  view: 'tests',
-  session: null,
+  view: 'hoy',
   tests: [],
   fallos: [],
   temas: [],
-  loading: false
+  summary: {},
+  loading: false,
+  timer: null,
+  lastUpdate: null
 };
 
 function setStatus(text, ok = true) {
   const el = $('connectionStatus');
   el.textContent = text;
   el.className = ok ? 'status-pill ok' : 'status-pill error';
-}
-
-function setBusy(isBusy, text = 'Cargando…') {
-  state.loading = isBusy;
-  $('refreshBtn').disabled = isBusy;
-  $('saveTestBtn').disabled = isBusy;
-  if (isBusy) setStatus(text);
 }
 
 function escapeHtml(value) {
@@ -38,224 +28,171 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
+function numberValue(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(String(value).replace(',', '.').replace('%', ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtPercent(value) {
+  const n = numberValue(value);
+  if (n === null) return '-';
+  return `${Math.round(n * 100) / 100}%`;
+}
+
 function fmtDate(value) {
   if (!value) return 'Sin fecha';
   try {
-    return new Intl.DateTimeFormat('es-ES', {
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(new Date(value));
+    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
   } catch {
     return value;
   }
 }
 
-function fmtPercent(value) {
-  if (value === null || value === undefined || value === '') return '-';
-  const n = Number(value);
-  if (!Number.isFinite(n)) return value;
-  return `${Math.round(n * 100) / 100}%`;
+function normalizeArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
-function isApproved(test) {
-  if (typeof test.aprobado === 'boolean') return test.aprobado;
-  if (test.porcentaje === null || test.porcentaje === undefined || test.porcentaje === '') return null;
-  const nota = Number(test.porcentaje);
-  return Number.isFinite(nota) ? nota >= 50 : null;
-}
-
-function resultText(test) {
-  const approved = isApproved(test);
-  if (approved === null) return 'Sin resultado';
-  return approved ? 'Aprobado' : 'Suspenso';
-}
-
-function resultClass(test) {
-  const approved = isApproved(test);
-  if (approved === null) return 'neutral';
-  return approved ? 'approved' : 'failed';
-}
-
-async function init() {
-  $('logoutBtn').addEventListener('click', logout);
-  $('refreshBtn').addEventListener('click', loadData);
-  $('testForm').addEventListener('submit', saveManualTest);
-
-  ['testTotal', 'testAciertos'].forEach((id) => {
-    $(id).addEventListener('input', autoCalculatePercent);
-  });
-
-  document.querySelectorAll('[data-view]').forEach((btn) => {
-    btn.addEventListener('click', () => setView(btn.dataset.view));
-  });
-
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=5').catch(() => {});
-  }
-
-  const { data } = await supabase.auth.getSession();
-  state.session = data.session;
-  updateAuthUi();
-
-  supabase.auth.onAuthStateChange((_event, session) => {
-    state.session = session;
-    updateAuthUi();
-    if (session) loadData();
-  });
-
-  if (state.session) {
-    await loadData();
-  } else {
-    setStatus('Sin sesión', false);
-    window.location.replace('./login.html');
-  }
+function normalizePayload(payload) {
+  const tests = normalizeArray(payload.tests || payload.ultimosTests || payload.powerTest || payload.rows);
+  const fallos = normalizeArray(payload.fallos || payload.errores || payload.failed || payload.preguntasFalladas);
+  const temas = normalizeArray(payload.temas || payload.temas_progreso || payload.temasDebiles || payload.progress);
+  const summary = payload.summary || payload.resumen || payload.estado || {};
+  return { tests, fallos, temas, summary };
 }
 
 function setView(view) {
   state.view = view;
-  document.querySelectorAll('[data-view]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.view === view);
+  document.querySelectorAll('[data-view]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.view === view);
   });
   renderContent();
 }
 
-async function logout() {
-  await supabase.auth.signOut();
+async function init() {
+  document.querySelectorAll('[data-view]').forEach((btn) => {
+    btn.addEventListener('click', () => setView(btn.dataset.view));
+  });
+  $('refreshBtn').addEventListener('click', () => loadData(true));
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js?v=4').catch(() => {});
+  }
+
+  $('autoRefreshText').textContent = `Auto: cada ${REFRESH_SECONDS} s`;
+
+  await loadData(false);
+  state.timer = window.setInterval(() => loadData(false), REFRESH_SECONDS * 1000);
+}
+
+async function loadData(manual = false) {
+  if (state.loading) return;
+
+  if (!APPS_SCRIPT_API_URL) {
+    setStatus('Pendiente URL Apps Script', false);
+    $('setupWarning').hidden = false;
+    renderEmptyPreparedState();
+    return;
+  }
+
+  state.loading = true;
+  $('refreshBtn').disabled = true;
+  setStatus(manual ? 'Actualizando…' : 'Leyendo Sheet…');
+
+  try {
+    const url = new URL(APPS_SCRIPT_API_URL);
+    url.searchParams.set('modo', 'pwa');
+    url.searchParams.set('t', Date.now().toString());
+
+    const response = await fetch(url.toString(), { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Apps Script respondió ${response.status}`);
+
+    const payload = await response.json();
+    const data = normalizePayload(payload);
+
+    state.tests = data.tests;
+    state.fallos = data.fallos;
+    state.temas = data.temas;
+    state.summary = data.summary;
+    state.lastUpdate = new Date();
+
+    $('setupWarning').hidden = true;
+    renderDashboard();
+    renderContent();
+    setStatus('Conectado a Google Sheets');
+    $('lastUpdateText').textContent = `Última actualización: ${state.lastUpdate.toLocaleTimeString('es-ES')}`;
+  } catch (error) {
+    setStatus('Error leyendo Apps Script', false);
+    $('contentArea').innerHTML = `<p class="error-text">${escapeHtml(error.message)}</p>`;
+  } finally {
+    state.loading = false;
+    $('refreshBtn').disabled = false;
+  }
+}
+
+function renderEmptyPreparedState() {
   state.tests = [];
   state.fallos = [];
   state.temas = [];
-  updateAuthUi();
-  setStatus('Sin sesión', false);
-  window.location.href = './login.html';
+  renderDashboard();
+  renderContent();
+  $('lastUpdateText').textContent = 'Esperando URL de Apps Script';
 }
 
-function updateAuthUi() {
-  const logged = Boolean(state.session);
-  $('dashboard').hidden = !logged;
-  $('actions').hidden = !logged;
-  $('newTestCard').hidden = !logged || state.view !== 'new';
-  $('contentCard').hidden = !logged || state.view === 'new';
-
-  if (logged) {
-    setStatus('Conectado');
-  }
+function getTestPercent(test) {
+  return numberValue(test.porcentaje ?? test.percent ?? test.media ?? test.score ?? test.nota);
 }
 
-async function loadData() {
-  if (!state.session || state.loading) return;
-  setBusy(true, 'Cargando…');
+function getAciertos(test) {
+  return numberValue(test.aciertos ?? test.correctas ?? test.correct ?? test.ok);
+}
 
-  const [testsRes, fallosRes, temasRes] = await Promise.all([
-    supabase.from('tests').select('*').order('fecha', { ascending: false }).limit(30),
-    supabase.from('fallos').select('*').eq('repasada', false).order('fecha', { ascending: false }).limit(50),
-    supabase.from('temas_progreso').select('*').order('porcentaje_acierto', { ascending: true, nullsFirst: true }).limit(20)
-  ]);
+function getFallos(test) {
+  return numberValue(test.fallos ?? test.incorrectas ?? test.failed ?? test.errores);
+}
 
-  const firstError = testsRes.error || fallosRes.error || temasRes.error;
-  if (firstError) {
-    setBusy(false);
-    setStatus('Error leyendo datos', false);
-    $('contentArea').innerHTML = `<p class="error-text">${escapeHtml(firstError.message)}</p>`;
-    return;
-  }
+function getNoRespondidas(test) {
+  return numberValue(test.no_respondidas ?? test.sinResponder ?? test.blank ?? test.vacias);
+}
 
-  state.tests = testsRes.data ?? [];
-  state.fallos = fallosRes.data ?? [];
-  state.temas = temasRes.data ?? [];
+function getTemaPercent(tema) {
+  return numberValue(tema.porcentaje_acierto ?? tema.porcentaje ?? tema.percent ?? tema.media);
+}
 
+function renderDashboard() {
   $('testsCount').textContent = state.tests.length;
   $('fallosCount').textContent = state.fallos.length;
-  $('temasCount').textContent = state.temas.length;
-  $('lastUpdateText').textContent = 'Actualizado ahora';
 
-  renderContent();
-  setBusy(false);
-  setStatus('Conectado');
+  const scores = state.tests.map(getTestPercent).filter((n) => n !== null);
+  const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+  $('averageScore').textContent = fmtPercent(avg);
+
+  const weakest = [...state.temas]
+    .map((tema) => ({ tema, percent: getTemaPercent(tema) }))
+    .filter((x) => x.percent !== null)
+    .sort((a, b) => a.percent - b.percent)[0];
+  $('weakTopic').textContent = weakest ? (weakest.tema.tema || weakest.tema.nombre || weakest.tema.bloque || 'Tema') : '-';
+
+  updateDonut();
 }
 
-function numberOrNull(id) {
-  const raw = $(id).value.trim().replace(',', '.');
-  if (raw === '') return null;
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : null;
-}
-
-function intOrNull(id) {
-  const value = numberOrNull(id);
-  return value === null ? null : Math.trunc(value);
-}
-
-function autoCalculatePercent() {
-  const total = intOrNull('testTotal');
-  const aciertos = intOrNull('testAciertos');
-  if (total && aciertos !== null && !$('testPorcentaje').matches(':focus')) {
-    $('testPorcentaje').value = Math.round((aciertos / total) * 10000) / 100;
-  }
-}
-
-async function saveManualTest(event) {
-  event.preventDefault();
-
-  if (!state.session?.user?.id) {
-    $('testFormMessage').textContent = 'Primero tienes que entrar con tu email.';
-    return;
-  }
-
-  const nombre = $('testNombre').value.trim();
-  if (!nombre) {
-    $('testFormMessage').textContent = 'Pon un nombre al test.';
-    return;
-  }
-
-  const totalPreguntas = intOrNull('testTotal');
-  const aciertos = intOrNull('testAciertos');
-  const fallos = intOrNull('testFallos');
-  const noRespondidas = intOrNull('testNoRespondidas');
-  let porcentaje = numberOrNull('testPorcentaje');
-  const tema = $('testTema').value.trim();
-
-  if (totalPreguntas !== null && aciertos !== null && aciertos > totalPreguntas) {
-    $('testFormMessage').textContent = 'Los aciertos no pueden ser más que las preguntas.';
-    return;
-  }
-
-  if (porcentaje === null && totalPreguntas && aciertos !== null) {
-    porcentaje = Math.round((aciertos / totalPreguntas) * 10000) / 100;
-  }
-
-  $('testFormMessage').textContent = 'Guardando test…';
-  setBusy(true, 'Guardando…');
-
-  const { error } = await supabase.from('tests').insert({
-    user_id: state.session.user.id,
-    fecha: new Date().toISOString(),
-    origen: 'Manual PWA',
-    nombre,
-    porcentaje,
-    aprobado: porcentaje === null ? null : porcentaje >= 50,
-    total_preguntas: totalPreguntas,
-    aciertos,
-    fallos,
-    no_respondidas: noRespondidas,
-    raw: tema ? { tema_principal: tema } : null
-  });
-
-  if (error) {
-    setBusy(false);
-    $('testFormMessage').textContent = 'Error guardando: ' + error.message;
-    setStatus('Error guardando', false);
-    return;
-  }
-
-  $('testForm').reset();
-  $('testFormMessage').textContent = 'Test guardado correctamente.';
-  setView('tests');
-  setBusy(false);
-  await loadData();
+function updateDonut() {
+  const latest = state.tests[0] || {};
+  const aciertos = getAciertos(latest) ?? 0;
+  const fallos = getFallos(latest) ?? 0;
+  const vacias = getNoRespondidas(latest) ?? 0;
+  const total = aciertos + fallos + vacias;
+  const good = total ? Math.round((aciertos / total) * 100) : 0;
+  const bad = total ? Math.round((fallos / total) * 100) : 0;
+  const empty = Math.max(0, 100 - good - bad);
+  $('donutChart').style.setProperty('--good', good);
+  $('donutChart').style.setProperty('--bad', bad);
+  $('donutChart').style.setProperty('--empty', empty);
 }
 
 function renderContent() {
-  updateAuthUi();
+  renderDashboard();
+  if (state.view === 'hoy') return renderHoy();
   if (state.view === 'tests') return renderTests();
   if (state.view === 'fallos') return renderFallos();
   if (state.view === 'temas') return renderTemas();
@@ -265,42 +202,73 @@ function emptyMessage(text) {
   return `<div class="empty">${escapeHtml(text)}</div>`;
 }
 
+function renderHoy() {
+  $('contentTitle').textContent = 'Hoy';
+  const latest = state.tests[0];
+  const weak = [...state.temas]
+    .map((tema) => ({ tema, percent: getTemaPercent(tema) }))
+    .filter((x) => x.percent !== null)
+    .sort((a, b) => a.percent - b.percent)[0];
+
+  if (!latest && !weak && !state.fallos.length) {
+    $('contentArea').innerHTML = emptyMessage(APPS_SCRIPT_API_URL ? 'No hay datos todavía en la respuesta de Apps Script.' : 'La migración está preparada. Falta pegar la URL de Apps Script para leer Google Sheets.');
+    return;
+  }
+
+  const recommendation = weak
+    ? `Repasa ${weak.tema.tema || weak.tema.nombre || 'el tema más débil'}: está en ${fmtPercent(weak.percent)}.`
+    : state.fallos.length
+      ? 'Empieza por repasar las preguntas falladas pendientes.'
+      : 'Vas bien. Haz un test nuevo cuando puedas.';
+
+  $('contentArea').innerHTML = `
+    <article class="item highlight">
+      <h3>Qué hacer ahora</h3>
+      <p>${escapeHtml(recommendation)}</p>
+    </article>
+    <article class="item">
+      <h3>Último test</h3>
+      ${latest ? `
+        <p>${escapeHtml(latest.nombre || latest.test || latest.titulo || 'Test sin nombre')}</p>
+        <p>Resultado: <strong>${escapeHtml(fmtPercent(getTestPercent(latest)))}</strong></p>
+        <p>${fmtDate(latest.fecha || latest.created_at || latest.timestamp)}</p>
+      ` : '<p>No hay test reciente.</p>'}
+    </article>
+  `;
+}
+
 function renderTests() {
-  $('contentTitle').textContent = 'Últimos tests';
+  $('contentTitle').textContent = 'Mis tests';
   if (!state.tests.length) {
-    $('contentArea').innerHTML = emptyMessage('Todavía no hay tests guardados en Supabase. Pulsa “Nuevo test” para meter uno.');
+    $('contentArea').innerHTML = emptyMessage('No hay tests todavía. Cuando Google Sheets tenga datos, aparecerán aquí.');
     return;
   }
 
   $('contentArea').innerHTML = state.tests.map((test) => `
     <article class="item">
       <div class="item-top">
-        <h3>${escapeHtml(test.nombre || 'Test sin nombre')}</h3>
-        <div class="test-result">
-          <span class="score-label">Nota</span>
-          <strong class="score">${escapeHtml(fmtPercent(test.porcentaje))}</strong>
-          <span class="result-badge ${resultClass(test)}">${escapeHtml(resultText(test))}</span>
-        </div>
+        <h3>${escapeHtml(test.nombre || test.test || test.titulo || 'Test sin nombre')}</h3>
+        <strong class="score ${scoreClass(getTestPercent(test))}">${escapeHtml(fmtPercent(getTestPercent(test)))}</strong>
       </div>
-      <p>${fmtDate(test.fecha)} · ${escapeHtml(test.origen || 'PowerTest')}</p>
-      <p>Aciertos: ${escapeHtml(test.aciertos ?? '-')} · Fallos: ${escapeHtml(test.fallos ?? '-')} · Sin responder: ${escapeHtml(test.no_respondidas ?? '-')}</p>
+      <p>${fmtDate(test.fecha || test.created_at || test.timestamp)} · ${escapeHtml(test.origen || 'Google Sheets')}</p>
+      <p>Aciertos: ${escapeHtml(getAciertos(test) ?? '-')} · Fallos: ${escapeHtml(getFallos(test) ?? '-')} · Sin responder: ${escapeHtml(getNoRespondidas(test) ?? '-')}</p>
     </article>
   `).join('');
 }
 
 function renderFallos() {
-  $('contentTitle').textContent = 'Fallos pendientes';
+  $('contentTitle').textContent = 'Preguntas falladas';
   if (!state.fallos.length) {
-    $('contentArea').innerHTML = emptyMessage('Todavía no hay fallos pendientes.');
+    $('contentArea').innerHTML = emptyMessage('No hay fallos pendientes. Perfecto, no tienes errores para repasar ahora.');
     return;
   }
 
   $('contentArea').innerHTML = state.fallos.map((fallo) => `
     <article class="item">
-      <h3>${escapeHtml(fallo.tema || 'Sin tema')}</h3>
-      <p>${escapeHtml(fallo.pregunta)}</p>
-      <p>Tu respuesta: ${escapeHtml(fallo.tu_respuesta || '-')}</p>
-      <p>Correcta: <strong>${escapeHtml(fallo.respuesta_correcta || '-')}</strong></p>
+      <h3>${escapeHtml(fallo.tema || fallo.bloque || 'Sin tema')}</h3>
+      <p>${escapeHtml(fallo.pregunta || fallo.enunciado || 'Pregunta sin texto')}</p>
+      <p>Tu respuesta: ${escapeHtml(fallo.tu_respuesta || fallo.respuesta_usuario || '-')}</p>
+      <p>Correcta: <strong>${escapeHtml(fallo.respuesta_correcta || fallo.correcta || '-')}</strong></p>
     </article>
   `).join('');
 }
@@ -308,20 +276,31 @@ function renderFallos() {
 function renderTemas() {
   $('contentTitle').textContent = 'Temas débiles';
   if (!state.temas.length) {
-    $('contentArea').innerHTML = emptyMessage('Todavía no hay temas registrados.');
+    $('contentArea').innerHTML = emptyMessage('No hay temas débiles todavía. Necesitamos datos del Sheet para calcularlos.');
     return;
   }
 
-  $('contentArea').innerHTML = state.temas.map((tema) => `
-    <article class="item">
-      <div class="item-top">
-        <h3>${escapeHtml(tema.tema)}</h3>
-        <strong class="score">${escapeHtml(fmtPercent(tema.porcentaje_acierto))}</strong>
-      </div>
-      <p>Bloque: ${escapeHtml(tema.bloque || '-')}</p>
-      <p>Total: ${escapeHtml(tema.total_preguntas)} · Fallos: ${escapeHtml(tema.fallos)}</p>
-    </article>
-  `).join('');
+  $('contentArea').innerHTML = state.temas.map((tema) => {
+    const percent = getTemaPercent(tema);
+    return `
+      <article class="item">
+        <div class="item-top">
+          <h3>${escapeHtml(tema.tema || tema.nombre || 'Tema')}</h3>
+          <strong class="score ${scoreClass(percent)}">${escapeHtml(fmtPercent(percent))}</strong>
+        </div>
+        <p>Bloque: ${escapeHtml(tema.bloque || '-')}</p>
+        <p>Total: ${escapeHtml(tema.total_preguntas ?? tema.total ?? '-')} · Fallos: ${escapeHtml(tema.fallos ?? tema.errores ?? '-')}</p>
+      </article>
+    `;
+  }).join('');
+}
+
+function scoreClass(percent) {
+  const n = numberValue(percent);
+  if (n === null) return 'neutral';
+  if (n < 50) return 'bad';
+  if (n < 70) return 'warn';
+  return 'good';
 }
 
 init();

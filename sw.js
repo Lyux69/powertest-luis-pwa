@@ -1,11 +1,10 @@
-const CACHE_NAME = 'powertest-luis-v5';
+const CACHE_NAME = 'powertest-luis-v4-sheets';
 const ASSETS = [
   './',
   './index.html',
-  './login.html',
-  './styles.css?v=5',
-  './app.js?v=5',
-  './login.js?v=5',
+  './styles.css?v=4',
+  './app.js?v=4',
+  './config.js?v=4',
   './manifest.webmanifest',
   './icon.svg'
 ];
@@ -29,7 +28,7 @@ self.addEventListener('fetch', (event) => {
   const sameOrigin = url.origin === self.location.origin;
 
   if (!sameOrigin) {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request)));
     return;
   }
 
